@@ -24,7 +24,8 @@ const User = mongoose.model("User", userSchema);
 const exerciseSchema = new mongoose.Schema({
   description: { type: String, required: true },
   duration: { type: Number, required: true},
-  date: { type: String, required: false }
+  date: { type: String, required: false },
+  _user_id: { type: String, required: true }
 });
 
 const Exercise = mongoose.model("Exercise", exerciseSchema);
@@ -51,8 +52,31 @@ app.get('/api/users', async (req, res) => {
 });
 
 // New Exercise
-app.post('/api/users/:_id/exercises', (req, res) => {
+app.post('/api/users/:_id/exercises', async (req, res) => {
+  const description = req.body.description;
+  const duration = +req.body.duration;
+  const date = req.body.date ? new Date(req.body.date).toDateString() : new Date().toDateString();
+  const _id = req.params._id;
 
+  const user = await User.findOne({ _id: _id});
+
+  const newExercise = new Exercise({
+    username: user.username,
+    description: description,
+    duration: duration,
+    date: date,
+    _user_id: _id
+  })
+
+  newExercise.save();
+
+  res.json({
+    username: user.username,
+    description: description,
+    duration: duration,
+    date: date,
+    _id: _id
+  })
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
