@@ -24,7 +24,7 @@ const User = mongoose.model("User", userSchema);
 const exerciseSchema = new mongoose.Schema({
   description: { type: String, required: true },
   duration: { type: Number, required: true},
-  date: { type: String, required: false },
+  date: { type: Date, required: true },
   _user_id: { type: String, required: true }
 });
 
@@ -55,10 +55,10 @@ app.get('/api/users', async (req, res) => {
 app.post('/api/users/:_id/exercises', async (req, res) => {
   const description = req.body.description;
   const duration = +req.body.duration;
-  const date = req.body.date ? new Date(req.body.date).toDateString() : new Date().toDateString();
+  const date = req.body.date ? new Date(req.body.date) : new Date();
   const _id = req.params._id;
 
-  const user = await User.findOne({ _id: _id});
+  const user = await User.findOne({ _id: _id });
 
   const newExercise = new Exercise({
     username: user.username,
@@ -74,8 +74,51 @@ app.post('/api/users/:_id/exercises', async (req, res) => {
     username: user.username,
     description: description,
     duration: duration,
-    date: date,
+    date: date.toDateString(),
     _id: _id
+  })
+});
+
+// Logs Endpoint
+app.get('/api/users/:_id/logs', async (req, res) => {
+  const _id = req.params._id;
+  const fromDate = new Date(req.query.from);
+  const toDate = new Date(req.query.to);
+
+  const user = await User.findOne({ _id: _id });
+  const exerciseCount = await Exercise.countDocuments({ _user_id: _id });
+
+  const queryObj = { _user_id: _id }
+
+  if (req.query.from && req.query.to) {
+    queryObj.date = { $gte: fromDate, $lte: toDate }
+  } else if (req.query.from) {
+    queryObj.date = { $gte: fromDate }
+  } else if (req.query.to) {
+    queryObj.date = { $lte: toDate }
+  }
+
+  let exerciseQuery = Exercise.find( queryObj );
+  
+  if (req.query.limit) {
+    exerciseQuery = exerciseQuery.limit(req.query.limit);
+  }
+
+  const exerciseLog = await exerciseQuery.exec();
+
+  const exerciseLogFormatted = exerciseLog.map( exercise => {
+    return {
+      description: exercise.description,
+      duration: exercise.duration,
+      date: exercise.date.toDateString()
+    }
+  })
+
+  res.json({
+    username: user.username,
+    count: exerciseCount,
+    _id: _id,
+    log: exerciseLogFormatted
   })
 });
 
